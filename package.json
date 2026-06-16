@@ -1,0 +1,13 @@
+{
+  "name": "edyk_na_bar",
+  "version": "1.0.0",
+  "description": "Telegram bot relay — send messages from one bot to another via Vercel",
+  "repository": {
+    "type": "git",
+    "url": "git@git-personal:FedirM/Edyk_Na_Bar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
