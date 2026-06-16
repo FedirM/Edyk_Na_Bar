@@ -3,9 +3,8 @@ const {
   answerCallbackQuery,
   editMessageText,
 } = require('../lib/telegram');
+const { deliverToTarget, REPEAT_COUNT } = require('../lib/deliver');
 
-const TARGET_CHAT_ID = process.env.TARGET_CHAT_ID;
-const TARGET_BOT_TOKEN = process.env.TARGET_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 const SEND_KEYBOARD = {
@@ -25,16 +24,6 @@ function formatSenderLabel(from) {
 
 function formatRelayText(from, text) {
   return `📩 Message from ${formatSenderLabel(from)}\n\n${text}`;
-}
-
-async function deliverToTarget(text) {
-  if (!TARGET_BOT_TOKEN) {
-    throw new Error('TARGET_BOT_TOKEN is not configured');
-  }
-  if (!TARGET_CHAT_ID) {
-    throw new Error('TARGET_CHAT_ID is not configured');
-  }
-  return sendMessage(TARGET_CHAT_ID, text, {}, TARGET_BOT_TOKEN);
 }
 
 module.exports = async (req, res) => {
@@ -88,9 +77,9 @@ async function handleCallbackQuery(callbackQuery) {
     const author = reply.from || callbackQuery.from;
 
     try {
+      await answerCallbackQuery(id, `Sending ${REPEAT_COUNT} times...`);
       await deliverToTarget(formatRelayText(author, text));
-      await answerCallbackQuery(id, 'Sent!');
-      await editMessageText(chatId, messageId, 'Sent to staff.');
+      await editMessageText(chatId, messageId, `Sent ${REPEAT_COUNT} times to staff.`);
     } catch (err) {
       console.error('Send failed:', err);
       await answerCallbackQuery(id, 'Failed to send');

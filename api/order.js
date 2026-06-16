@@ -1,7 +1,7 @@
-const { sendMessage } = require('../lib/telegram');
+const { deliverToTarget } = require('../lib/deliver');
 
-const TARGET_CHAT_ID = process.env.TARGET_CHAT_ID;
 const TARGET_BOT_TOKEN = process.env.TARGET_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+const TARGET_CHAT_ID = process.env.TARGET_CHAT_ID;
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -9,7 +9,7 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
-function configError(res) {
+function configError() {
   if (!TARGET_BOT_TOKEN) {
     return 'TARGET_BOT_TOKEN is not set in Vercel environment variables';
   }
@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const misconfigured = configError(res);
+  const misconfigured = configError();
   if (misconfigured) {
     console.error('Order config error:', misconfigured);
     return res.status(500).json({ error: misconfigured });
@@ -55,7 +55,7 @@ module.exports = async (req, res) => {
     `📝 Комментарий: ${commentsText}`;
 
   try {
-    await sendMessage(TARGET_CHAT_ID, message, {}, TARGET_BOT_TOKEN);
+    await deliverToTarget(message);
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('Order failed:', err);

@@ -1,3 +1,11 @@
 {
-  "version": 2
+  "version": 2,
+  "functions": {
+    "api/webhook.js": {
+      "maxDuration": 30
+    },
+    "api/order.js": {
+      "maxDuration": 30
+    }
+  }
 }
