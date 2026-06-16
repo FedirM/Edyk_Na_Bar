@@ -2,7 +2,7 @@ const {
   sendMessage,
   answerCallbackQuery,
   editMessageText,
-  forwardMessage,
+  copyMessage,
 } = require('../lib/telegram');
 
 const TARGET_CHAT_ID = process.env.TARGET_CHAT_ID;
@@ -54,6 +54,23 @@ module.exports = async (req, res) => {
   }
 };
 
+function isSameChat(a, b) {
+  return String(a) === String(b);
+}
+
+async function deliverToTarget(fromChatId, messageId, text) {
+  if (!TARGET_CHAT_ID) {
+    throw new Error('TARGET_CHAT_ID is not configured');
+  }
+
+  try {
+    return await copyMessage(TARGET_CHAT_ID, fromChatId, messageId);
+  } catch (copyError) {
+    console.warn('copyMessage failed, falling back to sendMessage:', copyError.message);
+    return sendMessage(TARGET_CHAT_ID, text);
+  }
+}
+
 async function handleCallbackQuery(callbackQuery) {
   const userId = callbackQuery.from.id;
   if (!isAllowedUser(userId)) {
@@ -78,10 +95,33 @@ async function handleCallbackQuery(callbackQuery) {
       return;
     }
 
-    const posted = await sendMessage(chatId, text);
-    await forwardMessage(chatId, posted.message_id, TARGET_CHAT_ID);
-    await answerCallbackQuery(id, 'Sent!');
-    await editMessageText(chatId, messageId, 'Posted and forwarded to Bot B.');
+    if (isSameChat(chatId, TARGET_CHAT_ID)) {
+      await answerCallbackQuery(
+        id,
+        'TARGET_CHAT_ID matches this chat — use a group/channel id'
+      );
+      await editMessageText(
+        chatId,
+        messageId,
+        'Cannot deliver: TARGET_CHAT_ID is the same as this chat. Use a group where both bots are members, then set TARGET_CHAT_ID to that group id.'
+      );
+      return;
+    }
+
+    try {
+      const posted = await sendMessage(chatId, text);
+      await deliverToTarget(chatId, posted.message_id, text);
+      await answerCallbackQuery(id, 'Sent!');
+      await editMessageText(chatId, messageId, 'Posted and sent to target chat.');
+    } catch (err) {
+      console.error('Send failed:', err);
+      await answerCallbackQuery(id, 'Failed to send');
+      await editMessageText(
+        chatId,
+        messageId,
+        `Failed to send to target chat: ${err.message}`
+      );
+    }
   }
 }
 

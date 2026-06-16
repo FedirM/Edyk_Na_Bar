@@ -6,7 +6,9 @@ A minimal Vercel serverless app that lets you compose a message in your **sender
 
 1. You send text to the sender bot in Telegram.
 2. The bot replies with a preview and **Send** / **Cancel** buttons.
-3. Tapping **Send** posts the message in your chat with the sender bot, then forwards it to `TARGET_CHAT_ID`.
+3. Tapping **Send** posts the message in your chat with the sender bot, then delivers a copy to `TARGET_CHAT_ID`.
+
+> **Important:** `TARGET_CHAT_ID` must be a **group/supergroup** where both bots are members (or a channel the sender bot can post to). Do **not** use your personal user id — that is the same chat as your sender bot, so the message never reaches Bot B.
 
 ## Prerequisites
 
@@ -32,14 +34,13 @@ Message [@userinfobot](https://t.me/userinfobot) on Telegram — it replies with
 
 ### Finding / confirming TARGET_CHAT_ID
 
-1. Send a message in the chat where Bot B should receive relayed text.
-2. Call `getUpdates` with the **second bot's** token:
+Create a Telegram **group**, add **both bots** as members, send a test message in the group, then:
 
 ```bash
 curl "https://api.telegram.org/bot<SECOND_BOT_TOKEN>/getUpdates"
 ```
 
-Use the `message.chat.id` value from the response.
+Use the group's `message.chat.id` (starts with `-100…`). Do **not** use your user id or a bot's numeric id.
 
 > **Note:** If the target is a group, your second bot may need privacy mode disabled (`/setprivacy` → Disable in BotFather) to see messages from another bot.
 
