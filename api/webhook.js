@@ -28,6 +28,9 @@ function formatRelayText(from, text) {
 }
 
 async function deliverToTarget(text) {
+  if (!TARGET_BOT_TOKEN) {
+    throw new Error('TARGET_BOT_TOKEN is not configured');
+  }
   if (!TARGET_CHAT_ID) {
     throw new Error('TARGET_CHAT_ID is not configured');
   }
