@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заказ Кальяна</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --accent-color: #ff9f43;
+            --text-color: #ffffff;
+            --text-muted: #a0a0a0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: var(--accent-color);
+        }
+
+        .section {
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        select, input[type="number"], textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background-color: #2d2d2d;
+            color: #fff;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .taste-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .taste-btn {
+            background-color: #2d2d2d;
+            border: 2px solid transparent;
+            color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .taste-btn.active {
+            border-color: var(--accent-color);
+            background-color: rgba(255, 159, 67, 0.1);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background-color: var(--accent-color);
+            color: #121212;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255, 159, 67, 0.3);
+        }
+
+        .btn-submit:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>💨 Hookah Menu</h1>
+    
+    <form id="orderForm">
+        <!-- Номер стола -->
+        <div class="section">
+            <label for="tableNum">Ваш стол:</label>
+            <input type="number" id="tableNum" placeholder="Например: 5" required min="1">
+        </div>
+
+        <!-- Выбор крепости -->
+        <div class="section">
+            <label for="strength">Крепость кальяна:</label>
+            <select id="strength">
+                <option value="Легкий (Soft)">Легкий (Soft)</option>
+                <option value="Средний (Medium)" selected>Средний (Medium)</option>
+                <option value="Крепкий (Hard)">Крепкий (Hard)</option>
+            </select>
+        </div>
+
+        <!-- Выбор направления вкуса -->
+        <div class="section">
+            <label>Предпочтения по вкусу (можно несколько):</label>
+            <div class="taste-grid">
+                <button type="button" class="taste-btn" onclick="toggleTaste(this, 'Сладкий')">🍓 Сладкий</button>
+                <button type="button" class="taste-btn" onclick="toggleTaste(this, 'Кислый')">🍋 Кислый</button>
+                <button type="button" class="taste-btn" onclick="toggleTaste(this, 'Свежий/Лед')">❄️ Свежий / Мята</button>
+                <button type="button" class="taste-btn" onclick="toggleTaste(this, 'Пряный/Выпечка')">🥮 Выпечка / Пряный</button>
+                <button type="button" class="taste-btn" onclick="toggleTaste(this, 'Тропический')">🍍 Тропики</button>
+                <button type="button" class="taste-btn" onclick="toggleTaste(this, 'Ягодный')">🍒 Ягодный</button>
+            </div>
+        </div>
+
+        <!-- Пожелания к забивке -->
+        <div class="section">
+            <label for="comments">Конкретные вкусы или бренды (пожелания):</label>
+            <textarea id="comments" rows="3" placeholder="Например: Love 66, без бергамота, побольше льда..."></textarea>
+        </div>
+
+        <button type="submit" class="btn-submit">Отправить заказ</button>
+    </form>
+</div>
+
+<script>
+    let selectedTastes = [];
+
+    function toggleTaste(button, taste) {
+        button.classList.toggle('active');
+        if (button.classList.contains('active')) {
+            selectedTastes.push(taste);
+        } else {
+            selectedTastes = selectedTastes.filter(t => t !== taste);
+        }
+    }
+
+    document.getElementById('orderForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const table = document.getElementById('tableNum').value;
+        const strength = document.getElementById('strength').value;
+        const comments = document.getElementById('comments').value;
+
+        fetch('/api/order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                table,
+                strength,
+                tastes: selectedTastes,
+                comments
+            })
+        })
+        .then(async response => {
+            if (response.ok) {
+                alert('Заказ успешно отправлен! Кальянщик уже собирает вашу забивку. 💨');
+                document.getElementById('orderForm').reset();
+                document.querySelectorAll('.taste-btn').forEach(btn => btn.classList.remove('active'));
+                selectedTastes = [];
+            } else {
+                alert('Ошибка при отправке заказа. Пожалуйста, позовите кальянщика.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка соединения.');
+        });
+    });
+</script>
+
+</body>
+</html>

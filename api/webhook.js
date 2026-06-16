@@ -2,13 +2,10 @@ const {
   sendMessage,
   answerCallbackQuery,
   editMessageText,
-  copyMessage,
 } = require('../lib/telegram');
 
 const TARGET_CHAT_ID = process.env.TARGET_CHAT_ID;
-const ALLOWED_USER_ID = process.env.ALLOWED_USER_ID
-  ? Number(process.env.ALLOWED_USER_ID)
-  : null;
+const TARGET_BOT_TOKEN = process.env.TARGET_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
 const SEND_KEYBOARD = {
@@ -20,9 +17,21 @@ const SEND_KEYBOARD = {
   ],
 };
 
-function isAllowedUser(userId) {
-  if (ALLOWED_USER_ID === null) return true;
-  return userId === ALLOWED_USER_ID;
+function formatSenderLabel(from) {
+  const name = [from.first_name, from.last_name].filter(Boolean).join(' ');
+  const username = from.username ? `@${from.username}` : 'no username';
+  return `${name} (${username}, id: ${from.id})`;
+}
+
+function formatRelayText(from, text) {
+  return `📩 Message from ${formatSenderLabel(from)}\n\n${text}`;
+}
+
+async function deliverToTarget(text) {
+  if (!TARGET_CHAT_ID) {
+    throw new Error('TARGET_CHAT_ID is not configured');
+  }
+  return sendMessage(TARGET_CHAT_ID, text, {}, TARGET_BOT_TOKEN);
 }
 
 module.exports = async (req, res) => {
@@ -54,30 +63,7 @@ module.exports = async (req, res) => {
   }
 };
 
-function isSameChat(a, b) {
-  return String(a) === String(b);
-}
-
-async function deliverToTarget(fromChatId, messageId, text) {
-  if (!TARGET_CHAT_ID) {
-    throw new Error('TARGET_CHAT_ID is not configured');
-  }
-
-  try {
-    return await copyMessage(TARGET_CHAT_ID, fromChatId, messageId);
-  } catch (copyError) {
-    console.warn('copyMessage failed, falling back to sendMessage:', copyError.message);
-    return sendMessage(TARGET_CHAT_ID, text);
-  }
-}
-
 async function handleCallbackQuery(callbackQuery) {
-  const userId = callbackQuery.from.id;
-  if (!isAllowedUser(userId)) {
-    await answerCallbackQuery(callbackQuery.id, 'Not authorized');
-    return;
-  }
-
   const { data, id, message } = callbackQuery;
   const chatId = message.chat.id;
   const messageId = message.message_id;
@@ -89,63 +75,48 @@ async function handleCallbackQuery(callbackQuery) {
   }
 
   if (data === 'send') {
-    const text = message.reply_to_message?.text;
+    const reply = message.reply_to_message;
+    const text = reply?.text;
     if (!text) {
       await answerCallbackQuery(id, 'No message to send');
       return;
     }
 
-    if (isSameChat(chatId, TARGET_CHAT_ID)) {
-      await answerCallbackQuery(
-        id,
-        'TARGET_CHAT_ID matches this chat — use a group/channel id'
-      );
-      await editMessageText(
-        chatId,
-        messageId,
-        'Cannot deliver: TARGET_CHAT_ID is the same as this chat. Use a group where both bots are members, then set TARGET_CHAT_ID to that group id.'
-      );
-      return;
-    }
+    const author = reply.from || callbackQuery.from;
 
     try {
-      const posted = await sendMessage(chatId, text);
-      await deliverToTarget(chatId, posted.message_id, text);
+      await deliverToTarget(formatRelayText(author, text));
       await answerCallbackQuery(id, 'Sent!');
-      await editMessageText(chatId, messageId, 'Posted and sent to target chat.');
+      await editMessageText(chatId, messageId, 'Sent to staff.');
     } catch (err) {
       console.error('Send failed:', err);
       await answerCallbackQuery(id, 'Failed to send');
       await editMessageText(
         chatId,
         messageId,
-        `Failed to send to target chat: ${err.message}`
+        `Failed to send: ${err.message}`
       );
     }
   }
 }
 
 async function handleMessage(message) {
-  const userId = message.from.id;
   const chatId = message.chat.id;
   const text = message.text;
 
   if (!text) return;
 
   if (text.startsWith('/start')) {
-    if (!isAllowedUser(userId)) return;
     await sendMessage(
       chatId,
-      'Send me any text message. Tap Send to post it here and forward it to Bot B.'
+      'Send any text message. Tap Send to deliver it to staff.'
     );
     return;
   }
 
   if (text.startsWith('/')) return;
 
-  if (!isAllowedUser(userId)) return;
-
-  await sendMessage(chatId, 'Post this in chat and forward to Bot B?', {
+  await sendMessage(chatId, 'Send this message to staff?', {
     reply_to_message_id: message.message_id,
     reply_markup: SEND_KEYBOARD,
   });

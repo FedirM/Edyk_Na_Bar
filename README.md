@@ -1,14 +1,23 @@
 # Edyk Na Bar — Telegram Bot Relay
 
-A minimal Vercel serverless app that lets you compose a message in your **sender bot**, confirm with an inline **Send** button, and forward it to a **target chat** where your second bot listens.
+A minimal Vercel serverless app with two entry points:
+
+- **Sender bot** — anyone can message it; tapping Send delivers to staff via the target bot
+- **Hookah order page** — web form at `/` that posts orders to the same staff chat
 
 ## How it works
 
-1. You send text to the sender bot in Telegram.
-2. The bot replies with a preview and **Send** / **Cancel** buttons.
-3. Tapping **Send** posts the message in your chat with the sender bot, then delivers a copy to `TARGET_CHAT_ID`.
+### Sender bot
+1. Anyone sends text to the sender bot in Telegram.
+2. The bot shows **Send** / **Cancel** buttons.
+3. Tapping **Send** delivers the message to staff using the **target bot token** (same chat as the hookah website).
 
-> **Important:** `TARGET_CHAT_ID` must be a **group/supergroup** where both bots are members (or a channel the sender bot can post to). Do **not** use your personal user id — that is the same chat as your sender bot, so the message never reaches Bot B.
+Each relayed message includes the sender's name, username, and id.
+
+### Hookah website
+1. Customer opens your Vercel URL (`/`).
+2. Fills the order form and submits.
+3. Server sends the formatted order to staff via `TARGET_BOT_TOKEN` → `TARGET_CHAT_ID`.
 
 ## Prerequisites
 
@@ -23,9 +32,9 @@ Copy `.env.example` to `.env` for local reference. Set these in **Vercel → Pro
 
 | Variable | Description |
 |----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Sender bot token from BotFather |
-| `TARGET_CHAT_ID` | Chat ID where the second bot receives messages |
-| `ALLOWED_USER_ID` | Your Telegram user ID — blocks other users |
+| `TELEGRAM_BOT_TOKEN` | Sender bot token (public-facing, receives customer messages) |
+| `TARGET_BOT_TOKEN` | Staff/target bot token (delivers to staff chat — same bot as hookah site) |
+| `TARGET_CHAT_ID` | Staff chat id (e.g. `5184403466` from your hookah site config) |
 | `WEBHOOK_SECRET` | Random string; must match the value used in `setWebhook` |
 
 ### Finding your user ID
@@ -34,13 +43,9 @@ Message [@userinfobot](https://t.me/userinfobot) on Telegram — it replies with
 
 ### Finding / confirming TARGET_CHAT_ID
 
-Create a Telegram **group**, add **both bots** as members, send a test message in the group, then:
+Use the same chat id as your hookah website (`TG_CHAT_ID`). This is the staff chat where the **target bot** already delivers orders.
 
-```bash
-curl "https://api.telegram.org/bot<SECOND_BOT_TOKEN>/getUpdates"
-```
-
-Use the group's `message.chat.id` (starts with `-100…`). Do **not** use your user id or a bot's numeric id.
+To confirm, temporarily delete the target bot webhook and call `getUpdates`, or add [@getidsbot](https://t.me/getidsbot) to the chat.
 
 > **Note:** If the target is a group, your second bot may need privacy mode disabled (`/setprivacy` → Disable in BotFather) to see messages from another bot.
 
@@ -99,14 +104,21 @@ VERCEL_URL=https://<your-vercel-app>.vercel.app \
 
 ## Usage
 
-1. Open your sender bot in Telegram and send `/start`.
+### Sender bot (Telegram)
+1. Anyone opens the sender bot and sends `/start`.
 2. Send any text message.
-3. Tap **Send** to post it in your chat and forward it to the target chat, or **Cancel** to discard.
+3. Tap **Send** to deliver it to staff, or **Cancel** to discard.
+
+### Hookah website
+1. Deploy to Vercel — the order form is served at `/`.
+2. Customers submit orders; they arrive in the same staff chat as bot messages.
 
 ## Project structure
 
 ```
-api/webhook.js    — Vercel serverless handler
+api/webhook.js    — Sender bot webhook (open to everyone)
+api/order.js      — Hookah order form API
+public/index.html — Hookah order page
 lib/telegram.js   — Telegram Bot API helpers
 vercel.json       — Vercel configuration
 ```
